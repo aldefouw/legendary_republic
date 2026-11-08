@@ -16,7 +16,9 @@ jobs:
       COMPOSE_PROJECT_NAME: piston-republic-ci
     steps:
       - checkout
-      - add_ssh_keys
+      - add_ssh_keys:
+          fingerprints:
+            - "SHA256:n8FVg5i1gQRKPqQRBIInC9HeH8OmynWk1IZ+0XXK/8c"
       - run:
           name: Clone Piston Republic
           command: git clone git@github.com:aldefouw/pistonrepublic_7.git pistonrepublic_7
