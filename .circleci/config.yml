@@ -63,7 +63,7 @@ jobs:
           name: Configure Cypress test users
           command: |
             # Match db/seeds/test_data.rb in pistonrepublic_7.
-            docker compose exec -T test node <<'JS'
+            docker compose exec -T test node \<<'JS'
             const fs = require('fs');
             fs.writeFileSync('cypress.env.json', JSON.stringify({
               users: {
