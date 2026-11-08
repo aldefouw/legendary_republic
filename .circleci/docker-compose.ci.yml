@@ -15,6 +15,8 @@ services:
   test:
     environment:
       CI: "true"
+      CYPRESS_PROJECT_ID: iyb4mt
+      CYPRESS_RECORD_KEY: ${CYPRESS_RECORD_KEY:-}
       NODE_ENV: test
       PARALLEL_WORKERS: "1"
       DATABASE_URL: mysql2://root:root@db:3306/piston_republic_test

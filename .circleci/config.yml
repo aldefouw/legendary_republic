@@ -99,9 +99,11 @@ jobs:
       - run:
           name: Run Cypress feature tests inside the test container
           command: |
+            : "${CYPRESS_RECORD_KEY:?Set CYPRESS_RECORD_KEY in CircleCI project settings or the Run Tests context}"
             # Features reseed the same database, so run sequentially.
             # Excludes the data_import JavaScript spec targeting an external site.
             docker compose exec -T test yarn cypress run \
+              --record \
               --browser chromium \
               --spec 'cypress/e2e/**/*.feature' \
               --config video=true \
