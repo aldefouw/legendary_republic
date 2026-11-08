@@ -12,6 +12,7 @@ executors:
 jobs:
   run-tests:
     executor: docker-machine
+    parallelism: 6
     environment:
       COMPOSE_FILE: pistonrepublic_7/docker-compose.yml:.circleci/docker-compose.ci.yml
       COMPOSE_PROJECT_NAME: piston-republic-ci
@@ -100,10 +101,13 @@ jobs:
           name: Run Cypress feature tests inside the test container
           command: |
             : "${CYPRESS_RECORD_KEY:?Set CYPRESS_RECORD_KEY in CircleCI project settings or the Run Tests context}"
-            # Features reseed the same database, so run sequentially.
+            # Cypress Cloud splits features across six isolated machines.
+            # Features run sequentially within each machine's own database.
             # Excludes the data_import JavaScript spec targeting an external site.
             docker compose exec -T test yarn cypress run \
               --record \
+              --parallel \
+              --ci-build-id "$CIRCLE_WORKFLOW_ID" \
               --browser chromium \
               --spec 'cypress/e2e/**/*.feature' \
               --config video=true \
