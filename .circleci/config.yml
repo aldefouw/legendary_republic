@@ -21,7 +21,16 @@ jobs:
             - "SHA256:n8FVg5i1gQRKPqQRBIInC9HeH8OmynWk1IZ+0XXK/8c"
       - run:
           name: Clone Piston Republic
-          command: git clone git@github.com:aldefouw/pistonrepublic_7.git pistonrepublic_7
+          command: |
+            # CircleCI names additional key files using their MD5 fingerprint.
+            # Select this key explicitly rather than the checkout key.
+            deploy_key="$HOME/.ssh/id_rsa_fa4bf94087d56074904c340b6c6c6a44"
+            if [ ! -f "$deploy_key" ]; then
+              echo "Piston Republic deploy key was not installed. Check Additional SSH Keys and its configured fingerprint."
+              exit 1
+            fi
+            export GIT_SSH_COMMAND="ssh -F /dev/null -i $deploy_key -o IdentitiesOnly=yes -o BatchMode=yes"
+            git clone git@github.com:aldefouw/pistonrepublic_7.git pistonrepublic_7
       - run:
           name: Prepare Docker Compose
           command: |
