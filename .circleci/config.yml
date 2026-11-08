@@ -1,0 +1,111 @@
+version: 2.1
+
+# This CI repository clones the app and uses its Dockerfile and Compose file.
+executors:
+  docker-machine:
+    machine:
+      image: ubuntu-2604:current
+      docker_layer_caching: true
+    resource_class: large
+
+jobs:
+  run-tests:
+    executor: docker-machine
+    environment:
+      COMPOSE_FILE: pistonrepublic_7/docker-compose.yml:.circleci/docker-compose.ci.yml
+      COMPOSE_PROJECT_NAME: piston-republic-ci
+    steps:
+      - checkout
+      - add_ssh_keys
+      - run:
+          name: Clone Piston Republic
+          command: git clone git@github.com:aldefouw/pistonrepublic_7.git pistonrepublic_7
+      - run:
+          name: Prepare Docker Compose
+          command: |
+            test -f pistonrepublic_7/Dockerfile
+            test -f pistonrepublic_7/docker-compose.yml
+            # Compose requires this file; CI credentials come from the context
+            # through the environment entries in the CI override.
+            touch pistonrepublic_7/.env
+            mkdir -p pistonrepublic_7/test-results/cypress ci-logs
+            docker compose config --quiet
+      - run:
+          name: Build the app image using Docker Compose
+          command: docker compose build app
+      - run:
+          name: Start MySQL and the Rails test service
+          command: |
+            # test shares the image built by app. The CI override waits for
+            # MySQL's health check before test prepares its database.
+            docker compose up -d --no-build db test mailhog
+      - run:
+          name: Wait for Rails on port 4501
+          command: |
+            for attempt in $(seq 1 180); do
+              if curl --fail --silent --output /dev/null http://localhost:4501/users/sign_in; then
+                exit 0
+              fi
+              sleep 2
+            done
+            docker compose logs --no-color db test
+            exit 1
+      - run:
+          name: Install the browser inside the test container
+          command: |
+            docker compose exec -T --user root test sh -ec '
+              apt-get update
+              apt-get install -y --no-install-recommends chromium xvfb xauth libgtk-3-0 libgbm1
+              yarn cypress install
+              yarn cypress verify
+            '
+      - run:
+          name: Configure Cypress test users
+          command: |
+            # Match db/seeds/test_data.rb in pistonrepublic_7.
+            docker compose exec -T test node <<'JS'
+            const fs = require('fs');
+            fs.writeFileSync('cypress.env.json', JSON.stringify({
+              users: {
+                test_user_1: { user: 'testuser@example.com', pass: 'ThisIsABetterPasswordThanWhatWeHad' },
+                test_user_2: { user: 'otheruser@example.com', pass: 'ThisIsABetterPasswordThanWhatWeHad' }
+              }
+            }));
+            JS
+      - run:
+          name: Run Cypress feature tests inside the test container
+          command: |
+            # Features reseed the same database, so run sequentially.
+            # Excludes the data_import JavaScript spec targeting an external site.
+            docker compose exec -T test yarn cypress run \
+              --browser chromium \
+              --spec 'cypress/e2e/**/*.feature' \
+              --config video=true \
+              --reporter junit \
+              --reporter-options 'mochaFile=test-results/cypress/results-[hash].xml,toConsole=true'
+      - run:
+          name: Collect container logs
+          when: always
+          command: |
+            mkdir -p ci-logs
+            docker compose logs --no-color > ci-logs/compose.log 2>&1
+      - store_test_results:
+          path: pistonrepublic_7/test-results
+      - store_artifacts:
+          path: pistonrepublic_7/cypress/screenshots
+      - store_artifacts:
+          path: pistonrepublic_7/cypress/videos
+      - store_artifacts:
+          path: pistonrepublic_7/log/test.log
+      - store_artifacts:
+          path: ci-logs
+      - run:
+          name: Stop CI containers and remove test volumes
+          when: always
+          command: docker compose down --volumes --remove-orphans
+
+workflows:
+  piston-republic-tests:
+    jobs:
+      - run-tests:
+          context: Run Tests

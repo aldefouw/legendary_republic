@@ -1,0 +1,49 @@
+# CI overrides for the repository's docker-compose.yml.
+services:
+  db:
+    environment:
+      MYSQL_ROOT_HOST: "%"
+    healthcheck:
+      # Use an authenticated TCP connection so the temporary initialization
+      # server cannot report ready before MySQL finishes creating users.
+      test: ["CMD", "mysql", "--protocol=TCP", "-h", "127.0.0.1", "-uroot", "-proot", "-e", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  test:
+    environment:
+      CI: "true"
+      NODE_ENV: test
+      PARALLEL_WORKERS: "1"
+      DATABASE_URL: mysql2://root:root@db:3306/piston_republic_test
+      db_name: piston_republic_test
+      db_user: root
+      db_pass: root
+      db_port: "3306"
+      db_host: db
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-circleci-test-only-secret-key-base-0123456789abcdef0123456789abcdef}
+      # Preserve the spelling used by config/initializers/devise.rb.
+      secrety_key_base: ${SECRET_KEY_BASE:-circleci-test-only-secret-key-base-0123456789abcdef0123456789abcdef}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      FOG_DIRECTORY: ${FOG_DIRECTORY:-}
+      FOG_ASSET_HOST: ${FOG_ASSET_HOST:-}
+      FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
+      FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
+      FACEBOOK_CALLBACK_URL: ${FACEBOOK_CALLBACK_URL:-http://localhost:4501/users/auth/facebook/callback}
+    depends_on:
+      db:
+        condition: service_healthy
+    command:
+      - sh
+      - -ec
+      - |
+        rm -f tmp/pids/server.pid
+        bundle install
+        yarn install --frozen-lockfile --non-interactive
+        yarn build:test
+        bundle exec rails db:prepare
+        exec bundle exec rails s -p 4501 -b 0.0.0.0
