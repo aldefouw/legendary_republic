@@ -5,7 +5,8 @@ executors:
   docker-machine:
     machine:
       image: ubuntu-2604:current
-      docker_layer_caching: true
+      # Start with clean Docker storage instead of restoring accumulated layers.
+      docker_layer_caching: false
     resource_class: large
 
 jobs:
@@ -30,7 +31,7 @@ jobs:
               exit 1
             fi
             export GIT_SSH_COMMAND="ssh -F /dev/null -i $deploy_key -o IdentitiesOnly=yes -o BatchMode=yes"
-            git clone git@github.com:aldefouw/pistonrepublic_7.git pistonrepublic_7
+            git clone --depth 1 git@github.com:aldefouw/pistonrepublic_7.git pistonrepublic_7
       - run:
           name: Prepare Docker Compose
           command: |
@@ -40,10 +41,22 @@ jobs:
             # through the environment entries in the CI override.
             touch pistonrepublic_7/.env
             mkdir -p pistonrepublic_7/test-results/cypress ci-logs
+            # Preserve any app-specific ignore rules and append CI exclusions.
+            printf '\n' >> pistonrepublic_7/.dockerignore
+            cat .circleci/dockerignore.ci >> pistonrepublic_7/.dockerignore
             docker compose config --quiet
       - run:
+          name: Check disk space and clear unused CI build cache
+          command: |
+            df -h
+            df -i
+            docker system df
+            # This runs on the disposable CircleCI VM, before any app build.
+            docker builder prune --all --force
+            du -sh pistonrepublic_7
+      - run:
           name: Build the app image using Docker Compose
-          command: docker compose build app
+          command: docker compose --progress plain build app
       - run:
           name: Start MySQL and the Rails test service
           command: |
@@ -99,6 +112,11 @@ jobs:
           when: always
           command: |
             mkdir -p ci-logs
+            {
+              df -h
+              df -i
+              docker system df
+            } > ci-logs/disk-usage.log 2>&1
             docker compose logs --no-color > ci-logs/compose.log 2>&1
       - store_test_results:
           path: pistonrepublic_7/test-results

@@ -1,0 +1,17 @@
+# App source stays in the build; dependencies are installed by its Dockerfile.
+.git
+node_modules
+vendor/bundle
+.bundle
+log/*
+tmp/*
+coverage
+test-results
+cypress/screenshots
+cypress/videos
+.env
+.env.*
+yarn-error.log
+npm-debug.log
+.DS_Store
+.idea
