@@ -35,8 +35,8 @@ jobs:
       - run:
           name: Select and pull the dependency image
           command: |
-            : "${GHCR_USERNAME:?Set GHCR_USERNAME in the Run Tests context}"
-            : "${GHCR_TOKEN:?Set a read:packages GHCR_TOKEN in the Run Tests context}"
+            : "${GHCR_USERNAME:?Set GHCR_USERNAME in the Piston Republic context}"
+            : "${GHCR_TOKEN:?Set a read:packages GHCR_TOKEN in the Piston Republic context}"
             image=$(python3 .circleci/ci-image.py tag pistonrepublic_7)
             printf 'export CI_TEST_IMAGE=%q\n' "$image" >> "$BASH_ENV"
             printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USERNAME" --password-stdin
@@ -93,7 +93,7 @@ jobs:
       - run:
           name: Run Cypress feature tests inside the test container
           command: |
-            : "${CYPRESS_RECORD_KEY:?Set CYPRESS_RECORD_KEY in CircleCI project settings or the Run Tests context}"
+            : "${CYPRESS_RECORD_KEY:?Set CYPRESS_RECORD_KEY in CircleCI project settings or the Piston Republic context}"
             # Features reseed the same database, so run sequentially.
             # Excludes the data_import JavaScript spec targeting an external site.
             docker compose exec -T test yarn cypress run \
@@ -133,4 +133,4 @@ workflows:
   piston-republic-tests:
     jobs:
       - run-tests:
-          context: Run Tests
+          context: Piston Republic
