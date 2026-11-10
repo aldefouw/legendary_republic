@@ -13,6 +13,14 @@ services:
       start_period: 20s
 
   test:
+    image: ${CI_TEST_IMAGE:?Select the dependency image with .circleci/ci-image.py}
+    platform: linux/amd64
+    working_dir: /app
+    # These targets replace the app Compose file's mounts at the same paths.
+    # Paths resolve relative to pistonrepublic_7/docker-compose.yml.
+    volumes:
+      - .:/app
+      - node_modules_test:/app/node_modules
     environment:
       CI: "true"
       CYPRESS_PROJECT_ID: iyb4mt
@@ -44,8 +52,6 @@ services:
       - -ec
       - |
         rm -f tmp/pids/server.pid
-        bundle install
-        yarn install --frozen-lockfile --non-interactive
         yarn build:test
         bundle exec rails db:prepare
         exec bundle exec rails s -p 4501 -b 0.0.0.0
